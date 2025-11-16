@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  movie-metadata-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: movie-metadata-mcp:latest
+    container_name: movie-metadata-mcp
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    environment:
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - OMDB_API_KEY=${OMDB_API_KEY}
+      - NODE_ENV=production
+    # For MCP servers using stdio, we typically don't expose ports
+    # The server communicates via stdin/stdout
