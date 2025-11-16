@@ -34,13 +34,9 @@ jobs:
       - name: Create release tarball
         run: |
           mkdir -p release
-          tar -czf release/movie-metadata-mcp-${{ github.ref_name }}.tar.gz \
-            dist/ \
-            package.json \
-            package-lock.json \
-            README.md \
-            LICENSE \
-            .env.example
+          FILES="dist/ package.json package-lock.json README.md .env.example"
+          if [ -f LICENSE ]; then FILES="$FILES LICENSE"; fi
+          tar -czf release/movie-metadata-mcp-${{ github.ref_name }}.tar.gz $FILES
 
       - name: Generate changelog
         id: changelog
