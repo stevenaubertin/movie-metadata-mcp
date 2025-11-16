@@ -44,10 +44,14 @@ This MCP server provides five powerful tools for movie data:
 
 ### API Keys
 
-You need to set up environment variables for the API keys:
+The server supports two API providers and works with either one or both configured:
 
-- **TMDB_API_KEY** (required) - Get your free API key from [TMDB](https://www.themoviedb.org/settings/api)
-- **OMDB_API_KEY** (optional) - Get your free API key from [OMDB](https://www.omdbapi.com/apikey.aspx)
+- **TMDB_API_KEY** - Get your free API key from [TMDB](https://www.themoviedb.org/settings/api)
+  - Enables: `search_movies`, `get_movie_details`, `get_popular_movies`, `analyze_movie_performance`
+- **OMDB_API_KEY** - Get your free API key from [OMDB](https://www.omdbapi.com/apikey.aspx)
+  - Enables: `get_movie_by_imdb`
+
+**Note**: At least one API key is recommended, but the server will start successfully with neither (showing a warning). Only tools for configured providers will be available.
 
 ### Claude Desktop Configuration
 
@@ -219,6 +223,17 @@ npm run dev
 # Run directly
 npm start
 ```
+
+## Graceful Degradation
+
+The MCP server is designed to work with partial configuration:
+
+- **Both APIs configured**: All 5 tools available
+- **Only TMDB configured**: 4 tools available (search, details, popular, analyze)
+- **Only OMDB configured**: 1 tool available (get_movie_by_imdb)
+- **No APIs configured**: Server starts with warning, 0 tools available
+
+The server logs provider status on startup to stderr, showing which APIs are configured and which tools are available.
 
 ## API Rate Limits
 

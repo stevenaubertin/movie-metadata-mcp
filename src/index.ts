@@ -11,10 +11,12 @@ import {
 // TMDB API Configuration
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_AVAILABLE = !!TMDB_API_KEY;
 
 // OMDB API Configuration
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
 const OMDB_BASE_URL = "https://www.omdbapi.com";
+const OMDB_AVAILABLE = !!OMDB_API_KEY;
 
 interface MovieSearchResult {
   id: number;
@@ -40,8 +42,8 @@ interface MovieDetails {
   tagline: string;
 }
 
-// Define available tools
-const TOOLS: Tool[] = [
+// Define all possible tools
+const ALL_TOOLS: Array<Tool & { provider: 'TMDB' | 'OMDB' }> = [
   {
     name: "search_movies",
     description:
@@ -60,6 +62,7 @@ const TOOLS: Tool[] = [
       },
       required: ["query"],
     },
+    provider: "TMDB",
   },
   {
     name: "get_movie_details",
@@ -75,6 +78,7 @@ const TOOLS: Tool[] = [
       },
       required: ["movie_id"],
     },
+    provider: "TMDB",
   },
   {
     name: "get_movie_by_imdb",
@@ -90,6 +94,7 @@ const TOOLS: Tool[] = [
       },
       required: ["imdb_id"],
     },
+    provider: "OMDB",
   },
   {
     name: "get_popular_movies",
@@ -104,6 +109,7 @@ const TOOLS: Tool[] = [
         },
       },
     },
+    provider: "TMDB",
   },
   {
     name: "analyze_movie_performance",
@@ -119,13 +125,26 @@ const TOOLS: Tool[] = [
       },
       required: ["movie_id"],
     },
+    provider: "TMDB",
   },
 ];
+
+// Build available tools based on configured API keys
+function getAvailableTools(): Tool[] {
+  return ALL_TOOLS.filter((tool) => {
+    if (tool.provider === "TMDB") return TMDB_AVAILABLE;
+    if (tool.provider === "OMDB") return OMDB_AVAILABLE;
+    return false;
+  }).map(({ provider, ...tool }) => tool);
+}
 
 // API Helper Functions
 async function fetchFromTMDB(endpoint: string): Promise<any> {
   if (!TMDB_API_KEY) {
-    throw new Error("TMDB_API_KEY environment variable is not set");
+    throw new Error(
+      "TMDB API is not configured. Please set the TMDB_API_KEY environment variable. " +
+      "Get your free API key at https://www.themoviedb.org/settings/api"
+    );
   }
 
   const url = `${TMDB_BASE_URL}${endpoint}${
@@ -142,7 +161,10 @@ async function fetchFromTMDB(endpoint: string): Promise<any> {
 
 async function fetchFromOMDB(params: Record<string, string>): Promise<any> {
   if (!OMDB_API_KEY) {
-    throw new Error("OMDB_API_KEY environment variable is not set");
+    throw new Error(
+      "OMDB API is not configured. Please set the OMDB_API_KEY environment variable. " +
+      "Get your free API key at https://www.omdbapi.com/apikey.aspx"
+    );
   }
 
   const searchParams = new URLSearchParams({
@@ -299,7 +321,7 @@ const server = new Server(
 
 // Handle tool listing
 server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return { tools: TOOLS };
+  return { tools: getAvailableTools() };
 });
 
 // Handle tool execution
@@ -368,6 +390,28 @@ async function main() {
 
   // Log to stderr since stdout is used for MCP communication
   console.error("Movie Metadata MCP Server running on stdio");
+  console.error("─".repeat(50));
+
+  // Log provider status
+  console.error("Provider Status:");
+  console.error(`  TMDB: ${TMDB_AVAILABLE ? "✓ Configured" : "✗ Not configured (set TMDB_API_KEY)"}`);
+  console.error(`  OMDB: ${OMDB_AVAILABLE ? "✓ Configured" : "✗ Not configured (set OMDB_API_KEY)"}`);
+
+  // Warn if no providers are configured
+  if (!TMDB_AVAILABLE && !OMDB_AVAILABLE) {
+    console.error("\n⚠ WARNING: No API providers configured!");
+    console.error("  Please set at least one API key:");
+    console.error("  - TMDB_API_KEY: https://www.themoviedb.org/settings/api");
+    console.error("  - OMDB_API_KEY: https://www.omdbapi.com/apikey.aspx");
+  }
+
+  // Log available tools
+  const availableTools = getAvailableTools();
+  console.error(`\nAvailable Tools: ${availableTools.length}`);
+  availableTools.forEach(tool => {
+    console.error(`  - ${tool.name}`);
+  });
+  console.error("─".repeat(50));
 }
 
 main().catch((error) => {
