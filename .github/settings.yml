@@ -1,0 +1,73 @@
+# GitHub Repository Settings
+# This file documents the recommended repository settings
+# These settings must be applied via GitHub UI or API
+
+repository:
+  # General Settings
+  name: movie-metadata-mcp
+  description: MCP server for getting and analyzing movie metadata
+  homepage: https://github.com/stevenaubertin/movie-metadata-mcp
+  topics:
+    - mcp
+    - movie
+    - metadata
+    - tmdb
+    - omdb
+    - model-context-protocol
+    - claude
+    - ai
+
+  # Feature Settings
+  has_issues: true
+  has_projects: true
+  has_wiki: false
+  has_downloads: true
+
+  # Merge Settings
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: false
+  delete_branch_on_merge: true
+
+  # PR Settings
+  allow_auto_merge: true
+
+# Branch Protection Rules for 'main'
+branches:
+  - name: main
+    protection:
+      # Require pull request reviews before merging
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: false
+
+      # Require status checks to pass before merging
+      required_status_checks:
+        strict: true
+        contexts:
+          - "Build and Test (18.x)"
+          - "Build and Test (20.x)"
+          - "Build and Test (22.x)"
+          - "Code Quality"
+
+      # Enforce restrictions
+      enforce_admins: false
+
+      # Require linear history (enforces squash merges)
+      required_linear_history: true
+
+      # Allow force pushes
+      allow_force_pushes: false
+
+      # Allow deletions
+      allow_deletions: false
+
+      # Require conversation resolution before merging
+      required_conversation_resolution: true
+
+      # Lock branch
+      lock_branch: false
+
+      # Allow fork syncing
+      allow_fork_syncing: true
