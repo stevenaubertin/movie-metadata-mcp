@@ -142,53 +142,111 @@ Once configured with Claude Desktop, you can ask Claude to use these tools:
 
 ## Docker Deployment
 
-### Using Docker
+Docker provides the easiest way to run this MCP server without needing to install Node.js or manage dependencies locally.
 
-The easiest way to run this MCP server is with Docker:
+### Prerequisites
 
-1. Create a `.env` file in the project root:
-   ```bash
-   TMDB_API_KEY=your_tmdb_api_key_here
-   OMDB_API_KEY=your_omdb_api_key_here
-   ```
+- Docker installed ([Get Docker](https://docs.docker.com/get-docker/))
+- Your API keys from TMDB and/or OMDB
 
-2. Build the Docker image:
-   ```bash
-   docker build -t movie-metadata-mcp .
-   ```
+### Quick Start with Docker
 
-3. Run the container:
-   ```bash
-   docker run -i \
-     -e TMDB_API_KEY=your_tmdb_api_key \
-     -e OMDB_API_KEY=your_omdb_api_key \
-     movie-metadata-mcp
-   ```
+**Step 1: Get your API keys**
 
-### Using Docker Compose
+- **TMDB API Key**: Sign up at [TMDB](https://www.themoviedb.org/settings/api) (free, instant approval)
+- **OMDB API Key**: Sign up at [OMDB](https://www.omdbapi.com/apikey.aspx) (free, email activation)
 
-For easier management, use Docker Compose:
+**Step 2: Clone and navigate to the repository**
 
-1. Create a `.env` file in the project root with your API keys (see above)
+```bash
+git clone https://github.com/stevenaubertin/movie-metadata-mcp.git
+cd movie-metadata-mcp
+```
 
-2. Run with Docker Compose:
-   ```bash
-   docker-compose up -d
-   ```
+**Step 3: Set up environment variables**
 
-3. View logs:
-   ```bash
-   docker-compose logs -f
-   ```
+Copy the example environment file and add your API keys:
 
-4. Stop the service:
-   ```bash
-   docker-compose down
-   ```
+```bash
+# Copy the example file
+cp .env.example .env
 
-### Claude Desktop with Docker
+# Edit .env and replace with your actual API keys
+# TMDB_API_KEY=your_actual_tmdb_key_here
+# OMDB_API_KEY=your_actual_omdb_key_here
+```
 
-To use the Dockerized MCP server with Claude Desktop, update your configuration:
+**Step 4: Build the Docker image**
+
+```bash
+docker build -t movie-metadata-mcp .
+```
+
+This creates a lightweight Docker image (~50MB) with the MCP server and all dependencies.
+
+**Step 5: Test the server**
+
+Run the container interactively to verify it works:
+
+```bash
+docker run -i --rm \
+  -e TMDB_API_KEY=your_tmdb_api_key \
+  -e OMDB_API_KEY=your_omdb_api_key \
+  movie-metadata-mcp
+```
+
+You should see output showing:
+- Server running on stdio
+- Provider status (TMDB and OMDB configured)
+- Available tools list
+
+Press `Ctrl+C` to stop.
+
+### Using Docker Compose (Recommended)
+
+Docker Compose simplifies running the container with environment variables from your `.env` file.
+
+**Step 1: Ensure your `.env` file is configured** (see Quick Start above)
+
+**Step 2: Start the service**
+
+```bash
+docker-compose up -d
+```
+
+**Step 3: Check the logs to verify it's running**
+
+```bash
+docker-compose logs -f
+```
+
+You should see the server startup messages and provider status.
+
+**Step 4: Stop the service when needed**
+
+```bash
+docker-compose down
+```
+
+### Integrating with Claude Desktop (Docker)
+
+To use the Dockerized MCP server with Claude Desktop, you need to configure Claude to run the Docker container.
+
+**Step 1: Locate your Claude Desktop configuration file**
+
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+**Step 2: Build the Docker image first**
+
+```bash
+docker build -t movie-metadata-mcp .
+```
+
+**Step 3: Add the server configuration**
+
+Edit your `claude_desktop_config.json` and add:
 
 ```json
 {
@@ -199,13 +257,83 @@ To use the Dockerized MCP server with Claude Desktop, update your configuration:
         "run",
         "-i",
         "--rm",
-        "-e", "TMDB_API_KEY=your_tmdb_api_key_here",
-        "-e", "OMDB_API_KEY=your_omdb_api_key_here",
+        "-e", "TMDB_API_KEY=your_actual_tmdb_api_key_here",
+        "-e", "OMDB_API_KEY=your_actual_omdb_api_key_here",
         "movie-metadata-mcp"
       ]
     }
   }
 }
+```
+
+**Important**:
+- Replace `your_actual_tmdb_api_key_here` and `your_actual_omdb_api_key_here` with your real API keys
+- The `--rm` flag ensures containers are cleaned up after use
+- The `-i` flag keeps stdin open for MCP communication
+
+**Step 4: Restart Claude Desktop**
+
+Close and reopen Claude Desktop to load the new configuration.
+
+**Step 5: Verify the server is available**
+
+In Claude Desktop, you should be able to ask Claude to use the movie metadata tools, such as:
+- "Search for movies about space exploration"
+- "Get details for movie ID 550 (Fight Club)"
+- "What are the popular movies right now?"
+
+### Docker Tips
+
+**View available tools when server starts:**
+
+The server logs show which providers are configured and which tools are available:
+
+```
+Movie Metadata MCP Server running on stdio
+──────────────────────────────────────────────────
+Provider Status:
+  TMDB: ✓ Configured
+  OMDB: ✓ Configured
+
+Available Tools: 5
+  - search_movies
+  - get_movie_details
+  - get_popular_movies
+  - analyze_movie_performance
+  - get_movie_by_imdb
+──────────────────────────────────────────────────
+```
+
+**Run with only one API provider:**
+
+You can run with just TMDB or just OMDB:
+
+```bash
+# Only TMDB (4 tools available)
+docker run -i --rm \
+  -e TMDB_API_KEY=your_tmdb_api_key \
+  movie-metadata-mcp
+
+# Only OMDB (1 tool available)
+docker run -i --rm \
+  -e OMDB_API_KEY=your_omdb_api_key \
+  movie-metadata-mcp
+```
+
+**Rebuild after code changes:**
+
+If you modify the source code, rebuild the image:
+
+```bash
+docker build -t movie-metadata-mcp .
+```
+
+**Remove old images:**
+
+Clean up old images to save space:
+
+```bash
+docker image prune -f
 ```
 
 ## Development
