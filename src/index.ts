@@ -42,6 +42,41 @@ interface MovieDetails {
   tagline: string;
 }
 
+interface TVShowSearchResult {
+  id: number;
+  name: string;
+  first_air_date: string;
+  overview: string;
+  vote_average: number;
+  popularity: number;
+}
+
+interface TVShowDetails {
+  id: number;
+  name: string;
+  first_air_date: string;
+  last_air_date: string;
+  number_of_seasons: number;
+  number_of_episodes: number;
+  genres: { id: number; name: string }[];
+  overview: string;
+  vote_average: number;
+  vote_count: number;
+  status: string;
+  tagline: string;
+}
+
+interface TVEpisodeDetails {
+  id: number;
+  name: string;
+  episode_number: number;
+  season_number: number;
+  air_date: string;
+  overview: string;
+  vote_average: number;
+  runtime: number;
+}
+
 // Define all possible tools (OMDB tools listed first as primary)
 const ALL_TOOLS: Array<Tool & { provider: 'TMDB' | 'OMDB' }> = [
   {
@@ -124,6 +159,66 @@ const ALL_TOOLS: Array<Tool & { provider: 'TMDB' | 'OMDB' }> = [
         },
       },
       required: ["movie_id"],
+    },
+    provider: "TMDB",
+  },
+  {
+    name: "search_tv_shows",
+    description:
+      "Search for TV shows by name using TMDB API. Returns a list of matching TV shows with basic information.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The TV show name to search for",
+        },
+        year: {
+          type: "number",
+          description: "Optional first air year to filter results",
+        },
+      },
+      required: ["query"],
+    },
+    provider: "TMDB",
+  },
+  {
+    name: "get_tv_show_details",
+    description:
+      "Get detailed information about a specific TV show using TMDB ID. Returns comprehensive metadata including genres, number of seasons/episodes, and more.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tv_id: {
+          type: "number",
+          description: "The TMDB TV show ID",
+        },
+      },
+      required: ["tv_id"],
+    },
+    provider: "TMDB",
+  },
+  {
+    name: "get_tv_episode_details",
+    description:
+      "Get detailed information about a specific TV episode using TMDB TV show ID, season number, and episode number. Returns episode name, air date, overview, and more.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tv_id: {
+          type: "number",
+          description: "The TMDB TV show ID",
+        },
+        season_number: {
+          type: "number",
+          description: "The season number",
+        },
+        episode_number: {
+          type: "number",
+          description: "The episode number",
+        },
+      },
+      required: ["tv_id", "season_number", "episode_number"],
     },
     provider: "TMDB",
   },
@@ -306,6 +401,79 @@ async function analyzeMoviePerformance(movieId: number): Promise<string> {
   return JSON.stringify(analysis, null, 2);
 }
 
+async function searchTVShows(query: string, year?: number): Promise<string> {
+  const endpoint = `/search/tv?query=${encodeURIComponent(query)}${
+    year ? `&first_air_date_year=${year}` : ""
+  }`;
+
+  const data = await fetchFromTMDB(endpoint);
+
+  const results: TVShowSearchResult[] = data.results.slice(0, 10);
+
+  return JSON.stringify(
+    {
+      total_results: data.total_results,
+      results: results.map((show) => ({
+        id: show.id,
+        name: show.name,
+        first_air_date: show.first_air_date,
+        overview: show.overview,
+        vote_average: show.vote_average,
+        popularity: show.popularity,
+      })),
+    },
+    null,
+    2
+  );
+}
+
+async function getTVShowDetails(tvId: number): Promise<string> {
+  const data: TVShowDetails = await fetchFromTMDB(`/tv/${tvId}`);
+
+  return JSON.stringify(
+    {
+      id: data.id,
+      name: data.name,
+      first_air_date: data.first_air_date,
+      last_air_date: data.last_air_date,
+      number_of_seasons: data.number_of_seasons,
+      number_of_episodes: data.number_of_episodes,
+      genres: data.genres.map((g) => g.name),
+      overview: data.overview,
+      vote_average: data.vote_average,
+      vote_count: data.vote_count,
+      status: data.status,
+    },
+    null,
+    2
+  );
+}
+
+async function getTVEpisodeDetails(
+  tvId: number,
+  seasonNumber: number,
+  episodeNumber: number
+): Promise<string> {
+  const data: TVEpisodeDetails = await fetchFromTMDB(
+    `/tv/${tvId}/season/${seasonNumber}/episode/${episodeNumber}`
+  );
+
+  return JSON.stringify(
+    {
+      id: data.id,
+      name: data.name,
+      episode_number: data.episode_number,
+      season_number: data.season_number,
+      air_date: data.air_date,
+      overview: data.overview,
+      vote_average: data.vote_average,
+      runtime: data.runtime,
+    },
+    null,
+    2
+  );
+}
+
 // Create and configure the server
 const server = new Server(
   {
@@ -365,6 +533,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "analyze_movie_performance": {
         const { movie_id } = args as { movie_id: number };
         const result = await analyzeMoviePerformance(movie_id);
+        return {
+          content: [{ type: "text", text: result }],
+        };
+      }
+
+      case "search_tv_shows": {
+        const { query, year } = args as { query: string; year?: number };
+        const result = await searchTVShows(query, year);
+        return {
+          content: [{ type: "text", text: result }],
+        };
+      }
+
+      case "get_tv_show_details": {
+        const { tv_id } = args as { tv_id: number };
+        const result = await getTVShowDetails(tv_id);
+        return {
+          content: [{ type: "text", text: result }],
+        };
+      }
+
+      case "get_tv_episode_details": {
+        const { tv_id, season_number, episode_number } = args as {
+          tv_id: number;
+          season_number: number;
+          episode_number: number;
+        };
+        const result = await getTVEpisodeDetails(tv_id, season_number, episode_number);
         return {
           content: [{ type: "text", text: result }],
         };

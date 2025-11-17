@@ -8,13 +8,19 @@ A Model Context Protocol (MCP) server that provides tools for fetching and analy
 
 ## Features
 
-This MCP server provides five powerful tools for movie data:
+This MCP server provides eight powerful tools for movie and TV show data:
 
+### Movie Tools
 1. **get_movie_by_imdb** - Fetch movie data using IMDB ID via OMDB API (Primary)
 2. **search_movies** - Search for movies by title with optional year filtering
 3. **get_movie_details** - Get comprehensive movie information using TMDB ID
 4. **get_popular_movies** - Discover currently trending movies
 5. **analyze_movie_performance** - Analyze movie performance metrics (ROI, ratings, popularity)
+
+### TV Show Tools
+6. **search_tv_shows** - Search for TV shows by name with optional year filtering
+7. **get_tv_show_details** - Get comprehensive TV show information using TMDB ID
+8. **get_tv_episode_details** - Get specific episode information (name, air date, overview)
 
 ## Prerequisites
 
@@ -49,7 +55,7 @@ The server supports two API providers and works with either one or both configur
 - **OMDB_API_KEY** (Primary) - Get your free API key from [OMDB](https://www.omdbapi.com/apikey.aspx)
   - Enables: `get_movie_by_imdb`
 - **TMDB_API_KEY** (Secondary) - Get your free API key from [TMDB](https://www.themoviedb.org/settings/api)
-  - Enables: `search_movies`, `get_movie_details`, `get_popular_movies`, `analyze_movie_performance`
+  - Enables: `search_movies`, `get_movie_details`, `get_popular_movies`, `analyze_movie_performance`, `search_tv_shows`, `get_tv_show_details`, `get_tv_episode_details`
 
 **Note**: At least one API key is recommended, but the server will start successfully with neither (showing a warning). Only tools for configured providers will be available.
 
@@ -112,6 +118,24 @@ Once configured with Claude Desktop, you can ask Claude to use these tools:
 "Look up tt0468569 on IMDB"
 ```
 
+### Search for TV Shows
+```
+"Search for TV shows with 'Breaking Bad' in the title"
+"Find TV shows named 'The Office' that started in 2005"
+```
+
+### Get TV Show Details
+```
+"Get detailed information about the TV show with TMDB ID 1396"
+"How many seasons does TV show ID 1668 have?"
+```
+
+### Get TV Episode Details
+```
+"Get details for Breaking Bad season 5 episode 14"
+"What is the name of episode 1 of season 1 for TV show ID 1396?"
+```
+
 ## Available Tools
 
 ### get_movie_by_imdb (Primary - OMDB)
@@ -139,6 +163,24 @@ Once configured with Claude Desktop, you can ask Claude to use these tools:
 - **Parameters**:
   - `movie_id` (required): TMDB movie ID
 - **Returns**: Financial analysis (ROI, profit), audience reception metrics, production info
+
+### search_tv_shows (TMDB)
+- **Parameters**:
+  - `query` (required): TV show name to search for
+  - `year` (optional): First air year filter
+- **Returns**: List of matching TV shows with IDs, names, ratings, and overviews
+
+### get_tv_show_details (TMDB)
+- **Parameters**:
+  - `tv_id` (required): TMDB TV show ID
+- **Returns**: Comprehensive TV show data including number of seasons/episodes, genres, air dates, status
+
+### get_tv_episode_details (TMDB)
+- **Parameters**:
+  - `tv_id` (required): TMDB TV show ID
+  - `season_number` (required): Season number
+  - `episode_number` (required): Episode number
+- **Returns**: Episode details including name, air date, overview, runtime, and ratings
 
 ## Docker Deployment
 
@@ -356,9 +398,9 @@ npm start
 
 The MCP server is designed to work with partial configuration:
 
-- **Both APIs configured**: All 5 tools available
+- **Both APIs configured**: All 8 tools available
 - **Only OMDB configured** (Primary): 1 tool available (get_movie_by_imdb)
-- **Only TMDB configured** (Secondary): 4 tools available (search, details, popular, analyze)
+- **Only TMDB configured** (Secondary): 7 tools available (search movies/TV shows, details, popular, analyze, episodes)
 - **No APIs configured**: Server starts with warning, 0 tools available
 
 The server logs provider status on startup to stderr, showing which APIs are configured and which tools are available. OMDB is listed first as the primary provider.
