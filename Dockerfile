@@ -8,16 +8,11 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy source code
+# Copy source code (needed before npm ci since prepare script runs build)
 COPY src ./src
 
-# Build TypeScript
-RUN npm install typescript @types/node --save-dev && \
-    npm run build && \
-    npm uninstall typescript @types/node
+# Install dependencies and build
+RUN npm ci && npm cache clean --force
 
 # Remove source files to reduce image size
 RUN rm -rf src tsconfig.json

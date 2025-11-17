@@ -8,15 +8,15 @@ import {
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
 
-// TMDB API Configuration
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-const TMDB_AVAILABLE = !!TMDB_API_KEY;
-
-// OMDB API Configuration
+// OMDB API Configuration (Primary)
 const OMDB_API_KEY = process.env.OMDB_API_KEY;
 const OMDB_BASE_URL = "https://www.omdbapi.com";
 const OMDB_AVAILABLE = !!OMDB_API_KEY;
+
+// TMDB API Configuration (Secondary)
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_AVAILABLE = !!TMDB_API_KEY;
 
 interface MovieSearchResult {
   id: number;
@@ -42,8 +42,24 @@ interface MovieDetails {
   tagline: string;
 }
 
-// Define all possible tools
+// Define all possible tools (OMDB tools listed first as primary)
 const ALL_TOOLS: Array<Tool & { provider: 'TMDB' | 'OMDB' }> = [
+  {
+    name: "get_movie_by_imdb",
+    description:
+      "Get movie information using IMDB ID via OMDB API. Provides ratings from multiple sources and additional metadata.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        imdb_id: {
+          type: "string",
+          description: "The IMDB ID (e.g., tt0111161)",
+        },
+      },
+      required: ["imdb_id"],
+    },
+    provider: "OMDB",
+  },
   {
     name: "search_movies",
     description:
@@ -81,22 +97,6 @@ const ALL_TOOLS: Array<Tool & { provider: 'TMDB' | 'OMDB' }> = [
     provider: "TMDB",
   },
   {
-    name: "get_movie_by_imdb",
-    description:
-      "Get movie information using IMDB ID via OMDB API. Provides ratings from multiple sources and additional metadata.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        imdb_id: {
-          type: "string",
-          description: "The IMDB ID (e.g., tt0111161)",
-        },
-      },
-      required: ["imdb_id"],
-    },
-    provider: "OMDB",
-  },
-  {
     name: "get_popular_movies",
     description:
       "Get a list of currently popular movies from TMDB. Useful for discovering trending content.",
@@ -129,36 +129,16 @@ const ALL_TOOLS: Array<Tool & { provider: 'TMDB' | 'OMDB' }> = [
   },
 ];
 
-// Build available tools based on configured API keys
+// Build available tools based on configured API keys (prioritizes OMDB)
 function getAvailableTools(): Tool[] {
   return ALL_TOOLS.filter((tool) => {
-    if (tool.provider === "TMDB") return TMDB_AVAILABLE;
     if (tool.provider === "OMDB") return OMDB_AVAILABLE;
+    if (tool.provider === "TMDB") return TMDB_AVAILABLE;
     return false;
   }).map(({ provider, ...tool }) => tool);
 }
 
-// API Helper Functions
-async function fetchFromTMDB(endpoint: string): Promise<any> {
-  if (!TMDB_API_KEY) {
-    throw new Error(
-      "TMDB API is not configured. Please set the TMDB_API_KEY environment variable. " +
-      "Get your free API key at https://www.themoviedb.org/settings/api"
-    );
-  }
-
-  const url = `${TMDB_BASE_URL}${endpoint}${
-    endpoint.includes("?") ? "&" : "?"
-  }api_key=${TMDB_API_KEY}`;
-
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`TMDB API error: ${response.status} ${response.statusText}`);
-  }
-
-  return await response.json();
-}
-
+// API Helper Functions (OMDB first as primary)
 async function fetchFromOMDB(params: Record<string, string>): Promise<any> {
   if (!OMDB_API_KEY) {
     throw new Error(
@@ -182,7 +162,37 @@ async function fetchFromOMDB(params: Record<string, string>): Promise<any> {
   return await response.json();
 }
 
-// Tool Implementation Functions
+async function fetchFromTMDB(endpoint: string): Promise<any> {
+  if (!TMDB_API_KEY) {
+    throw new Error(
+      "TMDB API is not configured. Please set the TMDB_API_KEY environment variable. " +
+      "Get your free API key at https://www.themoviedb.org/settings/api"
+    );
+  }
+
+  const url = `${TMDB_BASE_URL}${endpoint}${
+    endpoint.includes("?") ? "&" : "?"
+  }api_key=${TMDB_API_KEY}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`TMDB API error: ${response.status} ${response.statusText}`);
+  }
+
+  return await response.json();
+}
+
+// Tool Implementation Functions (OMDB tools first)
+async function getMovieByIMDB(imdbId: string): Promise<string> {
+  const data = await fetchFromOMDB({ i: imdbId, plot: "full" });
+
+  if (data.Response === "False") {
+    throw new Error(data.Error || "Movie not found");
+  }
+
+  return JSON.stringify(data, null, 2);
+}
+
 async function searchMovies(query: string, year?: number): Promise<string> {
   const endpoint = `/search/movie?query=${encodeURIComponent(query)}${
     year ? `&year=${year}` : ""
@@ -230,16 +240,6 @@ async function getMovieDetails(movieId: number): Promise<string> {
     null,
     2
   );
-}
-
-async function getMovieByIMDB(imdbId: string): Promise<string> {
-  const data = await fetchFromOMDB({ i: imdbId, plot: "full" });
-
-  if (data.Response === "False") {
-    throw new Error(data.Error || "Movie not found");
-  }
-
-  return JSON.stringify(data, null, 2);
 }
 
 async function getPopularMovies(page: number = 1): Promise<string> {
@@ -324,12 +324,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   return { tools: getAvailableTools() };
 });
 
-// Handle tool execution
+// Handle tool execution (OMDB tools handled first)
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
     switch (name) {
+      case "get_movie_by_imdb": {
+        const { imdb_id } = args as { imdb_id: string };
+        const result = await getMovieByIMDB(imdb_id);
+        return {
+          content: [{ type: "text", text: result }],
+        };
+      }
+
       case "search_movies": {
         const { query, year } = args as { query: string; year?: number };
         const result = await searchMovies(query, year);
@@ -341,14 +349,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "get_movie_details": {
         const { movie_id } = args as { movie_id: number };
         const result = await getMovieDetails(movie_id);
-        return {
-          content: [{ type: "text", text: result }],
-        };
-      }
-
-      case "get_movie_by_imdb": {
-        const { imdb_id } = args as { imdb_id: string };
-        const result = await getMovieByIMDB(imdb_id);
         return {
           content: [{ type: "text", text: result }],
         };
@@ -392,17 +392,17 @@ async function main() {
   console.error("Movie Metadata MCP Server running on stdio");
   console.error("─".repeat(50));
 
-  // Log provider status
+  // Log provider status (OMDB shown first as primary)
   console.error("Provider Status:");
-  console.error(`  TMDB: ${TMDB_AVAILABLE ? "✓ Configured" : "✗ Not configured (set TMDB_API_KEY)"}`);
   console.error(`  OMDB: ${OMDB_AVAILABLE ? "✓ Configured" : "✗ Not configured (set OMDB_API_KEY)"}`);
+  console.error(`  TMDB: ${TMDB_AVAILABLE ? "✓ Configured" : "✗ Not configured (set TMDB_API_KEY)"}`);
 
   // Warn if no providers are configured
-  if (!TMDB_AVAILABLE && !OMDB_AVAILABLE) {
+  if (!OMDB_AVAILABLE && !TMDB_AVAILABLE) {
     console.error("\n⚠ WARNING: No API providers configured!");
     console.error("  Please set at least one API key:");
-    console.error("  - TMDB_API_KEY: https://www.themoviedb.org/settings/api");
     console.error("  - OMDB_API_KEY: https://www.omdbapi.com/apikey.aspx");
+    console.error("  - TMDB_API_KEY: https://www.themoviedb.org/settings/api");
   }
 
   // Log available tools

@@ -10,17 +10,17 @@ A Model Context Protocol (MCP) server that provides tools for fetching and analy
 
 This MCP server provides five powerful tools for movie data:
 
-1. **search_movies** - Search for movies by title with optional year filtering
-2. **get_movie_details** - Get comprehensive movie information using TMDB ID
-3. **get_movie_by_imdb** - Fetch movie data using IMDB ID via OMDB API
+1. **get_movie_by_imdb** - Fetch movie data using IMDB ID via OMDB API (Primary)
+2. **search_movies** - Search for movies by title with optional year filtering
+3. **get_movie_details** - Get comprehensive movie information using TMDB ID
 4. **get_popular_movies** - Discover currently trending movies
 5. **analyze_movie_performance** - Analyze movie performance metrics (ROI, ratings, popularity)
 
 ## Prerequisites
 
 - Node.js 18 or higher
-- TMDB API key (free at https://www.themoviedb.org/settings/api)
-- OMDB API key (optional, free at https://www.omdbapi.com/apikey.aspx)
+- OMDB API key (free at https://www.omdbapi.com/apikey.aspx) - Primary provider
+- TMDB API key (free at https://www.themoviedb.org/settings/api) - Secondary provider
 
 ## Installation
 
@@ -46,10 +46,10 @@ This MCP server provides five powerful tools for movie data:
 
 The server supports two API providers and works with either one or both configured:
 
-- **TMDB_API_KEY** - Get your free API key from [TMDB](https://www.themoviedb.org/settings/api)
-  - Enables: `search_movies`, `get_movie_details`, `get_popular_movies`, `analyze_movie_performance`
-- **OMDB_API_KEY** - Get your free API key from [OMDB](https://www.omdbapi.com/apikey.aspx)
+- **OMDB_API_KEY** (Primary) - Get your free API key from [OMDB](https://www.omdbapi.com/apikey.aspx)
   - Enables: `get_movie_by_imdb`
+- **TMDB_API_KEY** (Secondary) - Get your free API key from [TMDB](https://www.themoviedb.org/settings/api)
+  - Enables: `search_movies`, `get_movie_details`, `get_popular_movies`, `analyze_movie_performance`
 
 **Note**: At least one API key is recommended, but the server will start successfully with neither (showing a warning). Only tools for configured providers will be available.
 
@@ -114,29 +114,29 @@ Once configured with Claude Desktop, you can ask Claude to use these tools:
 
 ## Available Tools
 
-### search_movies
-- **Parameters**: 
+### get_movie_by_imdb (Primary - OMDB)
+- **Parameters**:
+  - `imdb_id` (required): IMDB ID (e.g., "tt0111161")
+- **Returns**: Movie information from OMDB including ratings from multiple sources
+
+### search_movies (TMDB)
+- **Parameters**:
   - `query` (required): Movie title to search for
   - `year` (optional): Release year filter
 - **Returns**: List of matching movies with IDs, titles, ratings, and overviews
 
-### get_movie_details
-- **Parameters**: 
+### get_movie_details (TMDB)
+- **Parameters**:
   - `movie_id` (required): TMDB movie ID
 - **Returns**: Comprehensive movie data including budget, revenue, genres, runtime, production companies
 
-### get_movie_by_imdb
-- **Parameters**: 
-  - `imdb_id` (required): IMDB ID (e.g., "tt0111161")
-- **Returns**: Movie information from OMDB including ratings from multiple sources
-
-### get_popular_movies
-- **Parameters**: 
+### get_popular_movies (TMDB)
+- **Parameters**:
   - `page` (optional): Page number for pagination (default: 1)
 - **Returns**: List of currently popular movies
 
-### analyze_movie_performance
-- **Parameters**: 
+### analyze_movie_performance (TMDB)
+- **Parameters**:
   - `movie_id` (required): TMDB movie ID
 - **Returns**: Financial analysis (ROI, profit), audience reception metrics, production info
 
@@ -292,31 +292,31 @@ The server logs show which providers are configured and which tools are availabl
 Movie Metadata MCP Server running on stdio
 ──────────────────────────────────────────────────
 Provider Status:
-  TMDB: ✓ Configured
   OMDB: ✓ Configured
+  TMDB: ✓ Configured
 
 Available Tools: 5
+  - get_movie_by_imdb
   - search_movies
   - get_movie_details
   - get_popular_movies
   - analyze_movie_performance
-  - get_movie_by_imdb
 ──────────────────────────────────────────────────
 ```
 
 **Run with only one API provider:**
 
-You can run with just TMDB or just OMDB:
+You can run with just OMDB or just TMDB:
 
 ```bash
-# Only TMDB (4 tools available)
-docker run -i --rm \
-  -e TMDB_API_KEY=your_tmdb_api_key \
-  movie-metadata-mcp
-
-# Only OMDB (1 tool available)
+# Only OMDB - Primary provider (1 tool available)
 docker run -i --rm \
   -e OMDB_API_KEY=your_omdb_api_key \
+  movie-metadata-mcp
+
+# Only TMDB - Secondary provider (4 tools available)
+docker run -i --rm \
+  -e TMDB_API_KEY=your_tmdb_api_key \
   movie-metadata-mcp
 ```
 
@@ -357,11 +357,11 @@ npm start
 The MCP server is designed to work with partial configuration:
 
 - **Both APIs configured**: All 5 tools available
-- **Only TMDB configured**: 4 tools available (search, details, popular, analyze)
-- **Only OMDB configured**: 1 tool available (get_movie_by_imdb)
+- **Only OMDB configured** (Primary): 1 tool available (get_movie_by_imdb)
+- **Only TMDB configured** (Secondary): 4 tools available (search, details, popular, analyze)
 - **No APIs configured**: Server starts with warning, 0 tools available
 
-The server logs provider status on startup to stderr, showing which APIs are configured and which tools are available.
+The server logs provider status on startup to stderr, showing which APIs are configured and which tools are available. OMDB is listed first as the primary provider.
 
 ## API Rate Limits
 
