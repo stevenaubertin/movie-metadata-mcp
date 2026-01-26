@@ -1,6 +1,6 @@
-# WARP.md
+# CLAUDE.md
 
-This file provides guidance to WARP Agent (warp.dev) when working with code in this repository.
+This file provides guidance to Claude when working with code in this repository.
 
 ## Project Overview
 
@@ -15,7 +15,7 @@ This is a Model Context Protocol (MCP) server that provides movie metadata tools
 - **Single-file architecture**: All server logic is in `src/index.ts`
 - **MCP SDK integration**: Uses `@modelcontextprotocol/sdk` for server/transport functionality
 - **API abstraction**: Two helper functions (`fetchFromOMDB`, `fetchFromTMDB`) handle all external API calls
-- **Tool-based architecture**: Five tools defined in `ALL_TOOLS` array, dispatched via switch statement in request handler
+- **Tool-based architecture**: Eight tools defined in `ALL_TOOLS` array, dispatched via switch statement in request handler
 - **Graceful degradation**: Server dynamically enables tools based on configured API keys
 - **Docker support**: Fully containerized with Dockerfile and docker-compose.yml
 
@@ -65,60 +65,33 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### Testing with Claude Desktop
-
-**Option 1: Node.js (Development)**
-
-Configure in Claude Desktop config file:
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "movie-metadata": {
-      "command": "node",
-      "args": ["/absolute/path/to/movie-metadata-mcp/dist/index.js"],
-      "env": {
-        "OMDB_API_KEY": "your_omdb_key_here",
-        "TMDB_API_KEY": "your_tmdb_key_here"
-      }
-    }
-  }
-}
-```
-
-**Option 2: Docker (Production)**
-
-```json
-{
-  "mcpServers": {
-    "movie-metadata": {
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e", "OMDB_API_KEY=your_omdb_key_here",
-        "-e", "TMDB_API_KEY=your_tmdb_key_here",
-        "movie-metadata-mcp"
-      ]
-    }
-  }
-}
-```
-
-Restart Claude Desktop to load changes.
-
 ## Code Structure
 
 ### Available Tools (in priority order)
 
 1. **get_movie_by_imdb** (OMDB - Primary)
+   - Fetch movie data using IMDB ID
+   
 2. **search_movies** (TMDB)
+   - Search for movies by title with optional year filtering
+   
 3. **get_movie_details** (TMDB)
+   - Get comprehensive movie information using TMDB ID
+   
 4. **get_popular_movies** (TMDB)
+   - Discover currently trending movies
+   
 5. **analyze_movie_performance** (TMDB)
+   - Analyze movie performance metrics (ROI, ratings, popularity)
+   
+6. **search_tv_shows** (TMDB)
+   - Search for TV shows by name with optional year filtering
+   
+7. **get_tv_show_details** (TMDB)
+   - Get comprehensive TV show information using TMDB ID
+   
+8. **get_tv_episode_details** (TMDB)
+   - Get specific episode information (name, air date, overview)
 
 ### Adding New Tools
 
@@ -127,9 +100,13 @@ Restart Claude Desktop to load changes.
    - `description`: What the tool does
    - `inputSchema`: JSON schema for parameters
    - `provider`: Either "OMDB" or "TMDB"
+
 2. Implement tool function (follow pattern: `async function toolName(...): Promise<string>`)
+
 3. Add case to switch statement in `CallToolRequestSchema` handler
+
 4. Tool functions should return JSON-stringified results for consistency
+
 5. Place OMDB tools before TMDB tools to maintain priority order
 
 ### API Integration
@@ -137,8 +114,10 @@ Restart Claude Desktop to load changes.
 - **OMDB** (Primary): Uses query parameters including `apikey`
   - Returns `{"Response": "False", "Error": "..."}` on failure
   - Helper function: `fetchFromOMDB(params: Record<string, string>)`
+
 - **TMDB** (Secondary): Uses REST endpoints with API key as query parameter
   - Helper function: `fetchFromTMDB(endpoint: string)`
+
 - Both APIs throw errors on non-200 responses
 - All API helpers check for configured keys before making requests
 
@@ -152,19 +131,22 @@ Restart Claude Desktop to load changes.
 ## Important Constraints
 
 ### API Rate Limits
+
 - TMDB: 40 requests per 10 seconds
 - OMDB: 1,000 requests per day
 
 ### Communication Protocol
+
 - **Never log to stdout**: MCP uses stdout for protocol messages
 - **Use stderr for logging**: `console.error()` for debug/startup messages
 - **Return structured data**: All tool responses must be valid JSON
 
 ### Environment Requirements
+
 - Node.js 18+ (or Docker)
 - At least one API key recommended:
   - **OMDB API key** (Primary): Enables `get_movie_by_imdb` tool
-  - **TMDB API key** (Secondary): Enables 4 tools (search, details, popular, analyze)
+  - **TMDB API key** (Secondary): Enables 7 tools (search, details, popular, analyze, TV shows, episodes)
 - Server starts with warning if no API keys configured (0 tools available)
 
 ## Docker Deployment
