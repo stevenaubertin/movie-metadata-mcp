@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/anthropics/claude-code/main/.claude/settings.schema.json",
+  "_comment": "Claude Code settings for MCP server projects",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "hooks": {
+    "PreCommit": [
+      {
+        "command": "npx eslint ."
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "npm install",
+      "npm run",
+      "npm test",
+      "npx eslint",
+      "npx prettier",
+      "npx tsc",
+      "node"
+    ],
+    "deny": [
+      "npm publish",
+      "rm -rf /",
+      "npx -y"
+    ]
+  }
+}
