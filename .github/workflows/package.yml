@@ -1,0 +1,53 @@
+name: Package
+
+on:
+  push:
+    branches: [ main, develop, 'claude/**' ]
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build and Package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build project
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Create npm package tarball
+        run: npm pack
+
+      - name: Verify package contents
+        run: |
+          TARBALL=$(ls *.tgz)
+          echo "Package: $TARBALL"
+          echo "Size: $(du -h "$TARBALL" | cut -f1)"
+          echo ""
+          echo "Contents:"
+          tar -tzf "$TARBALL"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: npm-package
+          path: '*.tgz'
+          retention-days: 30
