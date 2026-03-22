@@ -39,6 +39,9 @@ jobs:
           fi
           echo "Build successful: dist/index.js exists"
 
+      - name: Run tests
+        run: npm test
+
       - name: Upload build artifacts
         if: matrix.node-version == '20.x'
         uses: actions/upload-artifact@v6
