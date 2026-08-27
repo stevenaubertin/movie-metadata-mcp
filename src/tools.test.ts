@@ -12,6 +12,7 @@ import {
   searchTVShows,
   getTVShowDetails,
   getTVEpisodeDetails,
+  getWatchProviders,
 } from "./tools.js";
 
 // Mock global fetch
@@ -34,8 +35,8 @@ function mockJsonResponse(data: any, ok = true, status = 200) {
 // ─── ALL_TOOLS ───────────────────────────────────────────────────────
 
 describe("ALL_TOOLS", () => {
-  it("should have 8 tools defined", () => {
-    expect(ALL_TOOLS).toHaveLength(8);
+  it("should have 9 tools defined", () => {
+    expect(ALL_TOOLS).toHaveLength(9);
   });
 
   it("should have OMDB tools listed before TMDB tools", () => {
@@ -44,11 +45,11 @@ describe("ALL_TOOLS", () => {
     expect(omdbIndex).toBeLessThan(firstTmdbIndex);
   });
 
-  it("should have exactly 1 OMDB tool and 7 TMDB tools", () => {
+  it("should have exactly 1 OMDB tool and 8 TMDB tools", () => {
     const omdb = ALL_TOOLS.filter((t) => t.provider === "OMDB");
     const tmdb = ALL_TOOLS.filter((t) => t.provider === "TMDB");
     expect(omdb).toHaveLength(1);
-    expect(tmdb).toHaveLength(7);
+    expect(tmdb).toHaveLength(8);
   });
 
   it("should have unique tool names", () => {
@@ -85,15 +86,15 @@ describe("getAvailableTools", () => {
 
   it("should return only TMDB tools when only TMDB is configured", () => {
     const tools = getAvailableTools(false, true);
-    expect(tools).toHaveLength(7);
+    expect(tools).toHaveLength(8);
     tools.forEach((tool) => {
       expect(tool.name).not.toBe("get_movie_by_imdb");
     });
   });
 
-  it("should return all 8 tools when both APIs are configured", () => {
+  it("should return all 9 tools when both APIs are configured", () => {
     const tools = getAvailableTools(true, true);
-    expect(tools).toHaveLength(8);
+    expect(tools).toHaveLength(9);
   });
 
   it("should strip the provider field from returned tools", () => {
@@ -553,5 +554,150 @@ describe("getTVEpisodeDetails", () => {
 
     const calledUrl = mockFetch.mock.calls[0][0] as string;
     expect(calledUrl).toContain("/tv/100/season/2/episode/3");
+  });
+});
+
+// ─── getWatchProviders ───────────────────────────────────────────────
+
+describe("getWatchProviders", () => {
+  const providersPayload = {
+    id: 1234,
+    results: {
+      CA: {
+        link: "https://www.themoviedb.org/movie/1234/watch?locale=CA",
+        flatrate: [{ provider_name: "MUBI" }, { provider_name: "Crave" }],
+        rent: [{ provider_name: "Apple TV" }],
+        buy: [{ provider_name: "Apple TV" }],
+      },
+      US: {
+        link: "https://www.themoviedb.org/movie/1234/watch?locale=US",
+        flatrate: [{ provider_name: "MUBI" }],
+      },
+    },
+  };
+
+  it("should default to the CA region when none is given", async () => {
+    mockFetch.mockResolvedValueOnce(mockJsonResponse(providersPayload));
+
+    const result = JSON.parse(await getWatchProviders({ movie_id: 1234 }, "key"));
+
+    expect(result.region).toBe("CA");
+    expect(result.available).toBe(true);
+    expect(result.streaming).toEqual(["MUBI", "Crave"]);
+    expect(result.rent).toEqual(["Apple TV"]);
+    expect(result.buy).toEqual(["Apple TV"]);
+    expect(result.link).toBe(providersPayload.results.CA.link);
+  });
+
+  it("should call the TMDB movie watch/providers endpoint", async () => {
+    mockFetch.mockResolvedValueOnce(mockJsonResponse(providersPayload));
+
+    await getWatchProviders({ movie_id: 1234 }, "key");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("/movie/1234/watch/providers")
+    );
+  });
+
+  it("should honour an explicit region", async () => {
+    mockFetch.mockResolvedValueOnce(mockJsonResponse(providersPayload));
+
+    const result = JSON.parse(
+      await getWatchProviders({ movie_id: 1234, region: "US" }, "key")
+    );
+
+    expect(result.region).toBe("US");
+    expect(result.streaming).toEqual(["MUBI"]);
+  });
+
+  it("should resolve an IMDB id to a TMDB id before fetching providers", async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        mockJsonResponse({ movie_results: [{ id: 1234 }], tv_results: [] })
+      )
+      .mockResolvedValueOnce(mockJsonResponse(providersPayload));
+
+    const result = JSON.parse(
+      await getWatchProviders({ imdb_id: "tt35298123" }, "key")
+    );
+
+    expect(mockFetch.mock.calls[0][0]).toContain(
+      "/find/tt35298123?external_source=imdb_id"
+    );
+    expect(mockFetch.mock.calls[1][0]).toContain("/movie/1234/watch/providers");
+    expect(result.tmdb_id).toBe(1234);
+    expect(result.media_type).toBe("movie");
+  });
+
+  it("should resolve an IMDB id that matches a TV show", async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        mockJsonResponse({ movie_results: [], tv_results: [{ id: 99 }] })
+      )
+      .mockResolvedValueOnce(mockJsonResponse({ id: 99, results: {} }));
+
+    const result = JSON.parse(await getWatchProviders({ imdb_id: "tt0903747" }, "key"));
+
+    expect(mockFetch.mock.calls[1][0]).toContain("/tv/99/watch/providers");
+    expect(result.media_type).toBe("tv");
+  });
+
+  it("should throw when the IMDB id matches nothing", async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse({ movie_results: [], tv_results: [] })
+    );
+
+    await expect(
+      getWatchProviders({ imdb_id: "tt0000000" }, "key")
+    ).rejects.toThrow(/No TMDB match/);
+  });
+
+  it("should throw when neither movie_id nor imdb_id is given", async () => {
+    await expect(getWatchProviders({}, "key")).rejects.toThrow(
+      /movie_id or imdb_id/
+    );
+  });
+
+  it("should report the regions that do have offers when the asked region has none", async () => {
+    mockFetch.mockResolvedValueOnce(mockJsonResponse(providersPayload));
+
+    const result = JSON.parse(
+      await getWatchProviders({ movie_id: 1234, region: "FR" }, "key")
+    );
+
+    expect(result.available).toBe(false);
+    expect(result.available_regions).toEqual(["CA", "US"]);
+  });
+
+  it("should return empty offer lists rather than undefined", async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse({ id: 1234, results: { CA: { link: "x" } } })
+    );
+
+    const result = JSON.parse(await getWatchProviders({ movie_id: 1234 }, "key"));
+
+    expect(result.streaming).toEqual([]);
+    expect(result.rent).toEqual([]);
+    expect(result.buy).toEqual([]);
+    expect(result.free).toEqual([]);
+    expect(result.ads).toEqual([]);
+  });
+
+  it("should credit JustWatch as required by the TMDB terms", async () => {
+    mockFetch.mockResolvedValueOnce(mockJsonResponse(providersPayload));
+
+    const result = JSON.parse(await getWatchProviders({ movie_id: 1234 }, "key"));
+
+    expect(result.attribution).toMatch(/JustWatch/);
+  });
+
+  it("should query a tv id directly when media_type is tv", async () => {
+    mockFetch.mockResolvedValueOnce(mockJsonResponse({ id: 55, results: {} }));
+
+    await getWatchProviders({ movie_id: 55, media_type: "tv" }, "key");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("/tv/55/watch/providers")
+    );
   });
 });

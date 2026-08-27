@@ -60,6 +60,26 @@ export interface TVEpisodeDetails {
   runtime: number;
 }
 
+export interface WatchProviderOffer {
+  provider_name: string;
+}
+
+export interface WatchProviderRegion {
+  link?: string;
+  flatrate?: WatchProviderOffer[];
+  rent?: WatchProviderOffer[];
+  buy?: WatchProviderOffer[];
+  free?: WatchProviderOffer[];
+  ads?: WatchProviderOffer[];
+}
+
+export interface WatchProvidersTarget {
+  movie_id?: number;
+  imdb_id?: string;
+  region?: string;
+  media_type?: "movie" | "tv";
+}
+
 // Define all possible tools (OMDB tools listed first as primary)
 export const ALL_TOOLS: Array<Tool & { provider: 'TMDB' | 'OMDB' }> = [
   {
@@ -202,6 +222,34 @@ export const ALL_TOOLS: Array<Tool & { provider: 'TMDB' | 'OMDB' }> = [
         },
       },
       required: ["tv_id", "season_number", "episode_number"],
+    },
+    provider: "TMDB",
+  },
+  {
+    name: "get_watch_providers",
+    description:
+      "Get the streaming, rental and purchase options for a movie or TV show in a given country, using TMDB watch provider data (sourced from JustWatch). Accepts either a TMDB id or an IMDB id (e.g. tt35298123). Defaults to region CA.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        movie_id: {
+          type: "number",
+          description: "The TMDB movie ID (or TV show ID when media_type is 'tv')",
+        },
+        imdb_id: {
+          type: "string",
+          description: "The IMDB ID (e.g., tt35298123), resolved to a TMDB id automatically",
+        },
+        region: {
+          type: "string",
+          description: "ISO 3166-1 country code to report offers for (default: CA)",
+        },
+        media_type: {
+          type: "string",
+          enum: ["movie", "tv"],
+          description: "Which TMDB catalogue movie_id belongs to (default: movie)",
+        },
+      },
     },
     provider: "TMDB",
   },
@@ -461,6 +509,84 @@ export async function getTVEpisodeDetails(
       overview: data.overview,
       vote_average: data.vote_average,
       runtime: data.runtime,
+    },
+    null,
+    2
+  );
+}
+
+function providerNames(offers?: WatchProviderOffer[]): string[] {
+  return (offers ?? []).map((offer) => offer.provider_name);
+}
+
+export async function getWatchProviders(
+  target: WatchProvidersTarget,
+  apiKey: string
+): Promise<string> {
+  const region = (target.region ?? "CA").toUpperCase();
+  let mediaType: "movie" | "tv" = target.media_type ?? "movie";
+  let tmdbId = target.movie_id;
+
+  if (tmdbId === undefined) {
+    if (!target.imdb_id) {
+      throw new Error("Either movie_id or imdb_id must be provided");
+    }
+
+    const found = await fetchFromTMDB(
+      `/find/${encodeURIComponent(target.imdb_id)}?external_source=imdb_id`,
+      apiKey
+    );
+
+    if (found.movie_results?.length) {
+      tmdbId = found.movie_results[0].id;
+      mediaType = "movie";
+    } else if (found.tv_results?.length) {
+      tmdbId = found.tv_results[0].id;
+      mediaType = "tv";
+    } else {
+      throw new Error(`No TMDB match for IMDB id ${target.imdb_id}`);
+    }
+  }
+
+  const data = await fetchFromTMDB(
+    `/${mediaType}/${tmdbId}/watch/providers`,
+    apiKey
+  );
+
+  const attribution =
+    "Watch provider data from JustWatch, via TMDB. Offers change often — check the link before paying.";
+  const regions: Record<string, WatchProviderRegion> = data.results ?? {};
+  const offers = regions[region];
+
+  if (!offers) {
+    return JSON.stringify(
+      {
+        media_type: mediaType,
+        tmdb_id: tmdbId,
+        region,
+        available: false,
+        message: `No watch providers listed for region ${region}.`,
+        available_regions: Object.keys(regions).sort(),
+        attribution,
+      },
+      null,
+      2
+    );
+  }
+
+  return JSON.stringify(
+    {
+      media_type: mediaType,
+      tmdb_id: tmdbId,
+      region,
+      available: true,
+      link: offers.link,
+      streaming: providerNames(offers.flatrate),
+      rent: providerNames(offers.rent),
+      buy: providerNames(offers.buy),
+      free: providerNames(offers.free),
+      ads: providerNames(offers.ads),
+      attribution,
     },
     null,
     2

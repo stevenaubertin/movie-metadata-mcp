@@ -16,6 +16,7 @@ import {
   searchTVShows,
   getTVShowDetails,
   getTVEpisodeDetails,
+  getWatchProviders,
 } from "./tools.js";
 
 // OMDB API Configuration (Primary)
@@ -113,6 +114,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           episode_number: number;
         };
         const result = await getTVEpisodeDetails(tv_id, season_number, episode_number, TMDB_API_KEY!);
+        return {
+          content: [{ type: "text", text: result }],
+        };
+      }
+
+      case "get_watch_providers": {
+        const target = args as {
+          movie_id?: number;
+          imdb_id?: string;
+          region?: string;
+          media_type?: "movie" | "tv";
+        };
+        const result = await getWatchProviders(target, TMDB_API_KEY!);
         return {
           content: [{ type: "text", text: result }],
         };
