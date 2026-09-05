@@ -15,7 +15,7 @@ This is a Model Context Protocol (MCP) server that provides movie metadata tools
 - **Single-file architecture**: All server logic is in `src/index.ts`
 - **MCP SDK integration**: Uses `@modelcontextprotocol/sdk` for server/transport functionality
 - **API abstraction**: Two helper functions (`fetchFromOMDB`, `fetchFromTMDB`) handle all external API calls
-- **Tool-based architecture**: Eight tools defined in `ALL_TOOLS` array, dispatched via switch statement in request handler
+- **Tool-based architecture**: Nine tools defined in `ALL_TOOLS` array, dispatched via switch statement in request handler
 - **Graceful degradation**: Server dynamically enables tools based on configured API keys
 - **Docker support**: Fully containerized with Dockerfile and docker-compose.yml
 
@@ -93,6 +93,10 @@ docker-compose down
 8. **get_tv_episode_details** (TMDB)
    - Get specific episode information (name, air date, overview)
 
+9. **get_watch_providers** (TMDB)
+   - List streaming/rent/buy offers for a movie or show in a country (JustWatch data via TMDB)
+   - Accepts a TMDB id or an IMDB id (resolved through `/find`); defaults to region `CA`
+
 ### Adding New Tools
 
 1. Define tool schema in `ALL_TOOLS` array with:
@@ -146,7 +150,7 @@ docker-compose down
 - Node.js 18+ (or Docker)
 - At least one API key recommended:
   - **OMDB API key** (Primary): Enables `get_movie_by_imdb` tool
-  - **TMDB API key** (Secondary): Enables 7 tools (search, details, popular, analyze, TV shows, episodes)
+  - **TMDB API key** (Secondary): Enables 8 tools (search, details, popular, analyze, TV shows, episodes, watch providers)
 - Server starts with warning if no API keys configured (0 tools available)
 
 ## Docker Deployment

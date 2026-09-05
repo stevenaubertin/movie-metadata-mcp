@@ -8,7 +8,7 @@ A Model Context Protocol (MCP) server that provides tools for fetching and analy
 
 ## Features
 
-This MCP server provides eight powerful tools for movie and TV show data:
+This MCP server provides nine powerful tools for movie and TV show data:
 
 ### Movie Tools
 1. **get_movie_by_imdb** - Fetch movie data using IMDB ID via OMDB API (Primary)
@@ -21,6 +21,9 @@ This MCP server provides eight powerful tools for movie and TV show data:
 6. **search_tv_shows** - Search for TV shows by name with optional year filtering
 7. **get_tv_show_details** - Get comprehensive TV show information using TMDB ID
 8. **get_tv_episode_details** - Get specific episode information (name, air date, overview)
+
+### Availability Tools
+9. **get_watch_providers** - List where a movie or show can be streamed, rented or bought in a given country (TMDB data sourced from JustWatch). Accepts a TMDB id or an IMDB id; defaults to region `CA`.
 
 ## Prerequisites
 
@@ -55,7 +58,7 @@ The server supports two API providers and works with either one or both configur
 - **OMDB_API_KEY** (Primary) - Get your free API key from [OMDB](https://www.omdbapi.com/apikey.aspx)
   - Enables: `get_movie_by_imdb`
 - **TMDB_API_KEY** (Secondary) - Get your free API key from [TMDB](https://www.themoviedb.org/settings/api)
-  - Enables: `search_movies`, `get_movie_details`, `get_popular_movies`, `analyze_movie_performance`, `search_tv_shows`, `get_tv_show_details`, `get_tv_episode_details`
+  - Enables: `search_movies`, `get_movie_details`, `get_popular_movies`, `analyze_movie_performance`, `search_tv_shows`, `get_tv_show_details`, `get_tv_episode_details`, `get_watch_providers`
 
 **Note**: At least one API key is recommended, but the server will start successfully with neither (showing a warning). Only tools for configured providers will be available.
 
@@ -400,7 +403,7 @@ The MCP server is designed to work with partial configuration:
 
 - **Both APIs configured**: All 8 tools available
 - **Only OMDB configured** (Primary): 1 tool available (get_movie_by_imdb)
-- **Only TMDB configured** (Secondary): 7 tools available (search movies/TV shows, details, popular, analyze, episodes)
+- **Only TMDB configured** (Secondary): 8 tools available (search movies/TV shows, details, popular, analyze, episodes, watch providers)
 - **No APIs configured**: Server starts with warning, 0 tools available
 
 The server logs provider status on startup to stderr, showing which APIs are configured and which tools are available. OMDB is listed first as the primary provider.
